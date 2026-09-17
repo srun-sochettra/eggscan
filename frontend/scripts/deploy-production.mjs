@@ -11,6 +11,7 @@ const configPath = resolve(frontendDirectory, 'wrangler.jsonc')
 const builtHtmlPath = resolve(frontendDirectory, 'dist/client/index.html')
 const markerPattern = /<meta\s+name=["']eggscan-build["']\s+content=["']([^"']+)["'][^>]*>/i
 const modulePattern = /<script\s+[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i
+const stylesheetPattern = /<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["']/i
 const productionUrl = 'https://eggscan.0xlab.workers.dev/'
 const firefoxHeaders = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0',
@@ -40,8 +41,10 @@ if (effectiveAssetDirectory !== resolve(frontendDirectory, 'dist/client')) {
 }
 const builtMarker = builtHtml.match(markerPattern)?.[1]
 const modulePath = builtHtml.match(modulePattern)?.[1]
+const stylesheetPath = builtHtml.match(stylesheetPattern)?.[1]
 if (!builtMarker) throw new Error('Canonical deploy failed: built HTML has no eggscan-build marker.')
 if (!modulePath?.startsWith('/assets/') || !modulePath.endsWith('.js')) throw new Error('Canonical deploy failed: built HTML has no compiled /assets/*.js module.')
+if (!stylesheetPath?.startsWith('/assets/') || !stylesheetPath.endsWith('.css')) throw new Error('Canonical deploy failed: built HTML has no compiled /assets/*.css stylesheet.')
 if (builtHtml.includes('/src/main.jsx') || /(?:src|href)=["'][^"']+\.jsx(?:["']|\?)/i.test(builtHtml)) throw new Error('Canonical deploy failed: source JSX reference remains in built HTML.')
 
 const dryRunOutput = captureNpm(['exec', '--', 'wrangler', 'deploy', '--config', generatedConfigPath, '--dry-run', '--outdir', 'dist/deploy-dry-run'])
@@ -60,12 +63,24 @@ while (Date.now() < deadline) {
   const evidence = `status=${response.status} sha256=${hash(body)} marker=${actualMarker || '<missing>'} script=${actualModule || '<missing>'} cf-ray=${response.headers.get('cf-ray') || '<missing>'} cache=${response.headers.get('cf-cache-status') || '<missing>'}`
   console.log(`production smoke: ${evidence}`)
   if (response.ok && actualMarker === builtMarker && actualModule === modulePath && !body.includes('/src/main.jsx')) {
-    const moduleResponse = await fetch(new URL(modulePath, productionUrl), { headers: firefoxHeaders })
+    const [moduleResponse, stylesheetResponse, healthResponse] = await Promise.all([
+      fetch(new URL(modulePath, productionUrl), { headers: firefoxHeaders }),
+      fetch(new URL(stylesheetPath, productionUrl), { headers: firefoxHeaders }),
+      fetch(new URL('/api/health', productionUrl), { headers: { accept: 'application/json' } }),
+    ])
     const moduleType = moduleResponse.headers.get('content-type') || ''
-    if (!moduleResponse.ok || !/^application\/javascript|^text\/javascript/i.test(moduleType)) {
+    if (!moduleResponse.ok || !/^(application|text)\/javascript/i.test(moduleType)) {
       throw new Error(`Compiled module check failed: status=${moduleResponse.status} content-type=${moduleType}`)
     }
-    console.log(`Canonical production deploy passed: marker=${builtMarker} script=${modulePath} module-content-type=${moduleType}`)
+    const stylesheetType = stylesheetResponse.headers.get('content-type') || ''
+    if (!stylesheetResponse.ok || !/^text\/css/i.test(stylesheetType)) {
+      throw new Error(`Compiled stylesheet check failed: status=${stylesheetResponse.status} content-type=${stylesheetType}`)
+    }
+    const healthBody = await healthResponse.json().catch(() => null)
+    if (!healthResponse.ok || healthBody?.status !== 'ok' || healthBody?.service !== 'eggscan-worker') {
+      throw new Error(`Worker health check failed: status=${healthResponse.status} body=${JSON.stringify(healthBody)}`)
+    }
+    console.log(`Canonical production deploy passed: marker=${builtMarker} script=${modulePath} stylesheet=${stylesheetPath} api-health=ok`)
     process.exit(0)
   }
   lastMismatch = evidence

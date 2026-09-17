@@ -1,0 +1,13 @@
+﻿HTTP/1.1 502 Bad Gateway
+Date: Thu, 17 Sep 2026 05:51:57 GMT
+Content-Type: application/json
+Content-Length: 86
+Connection: keep-alive
+Vary: Origin
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=aBAdALvIMhv2eZ3QkyIMzCYC%2FKLtHhd5RVNeYNTd6HMZJazmJRJN6vQTC27GXoTkc0C9VqAmakgLMg%2Bodq0g60XTfCe48hEn0MRRQGh78ivxj5mtRs4%2B1YEJGmE8jU5diTr1dhoecDJpir5l"}]}
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Server: cloudflare
+CF-RAY: a3c5d7902a4ac90f-SIN
+alt-svc: h3=":443"; ma=86400
+
+{"error":{"code":"UPSTREAM_ERROR","message":"An upstream service returned HTTP 401."}}
