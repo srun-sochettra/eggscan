@@ -1,217 +1,118 @@
-#  EggScan
+# EggScan
 
-![EggScan Cover Banner](cover.png)
+**GitHub exploration with an egg-themed personality.**
 
-<div align="center">
-  <p><strong>Instantly scan, audit, and analyze GitHub profiles, battles, commits, readmes, and tech stacks with Groq-powered AI.</strong></p>
+EggScan brings profile activity, repository evidence, README feedback and technology-stack summaries into a React interface backed by GitHub APIs and structured AI responses. Explore a profile, inspect a repository, or try the app's playful comparison and feedback modes.
 
-  [![Java](https://img.shields.io/badge/Java-21-orange.svg?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
-  [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-  [![React](https://img.shields.io/badge/React-18.3-blue.svg?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
-  [![Vite](https://img.shields.io/badge/Vite-5.4-purple.svg?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-  [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3.4-38bdf8.svg?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-  [![Groq AI](https://img.shields.io/badge/Groq%20AI-Llama--3-red.svg?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
-</div>
+![EggScan cover](cover.png)
 
----
+[Open EggScan](https://eggscan.0xlab.workers.dev/) · [Architecture](docs/architecture.md) · [Deployment guide](frontend/README-MIGRATION.md)
 
-##  Table of Contents
-- [ Core Features](#-core-features)
-- [ The Egg Verdict System](#-the-egg-verdict-system)
-- [ Project Architecture](#-project-architecture)
-- [ Getting Started](#-getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Backend Setup (Spring Boot)](#backend-setup-spring-boot)
-  - [Frontend Setup (Vite + React)](#frontend-setup-vite--react)
-- [ Configuration & Environment Variables](#-configuration--environment-variables)
-- [ Performance & Technical Highlights](#-performance--technical-highlights)
-- [ Contributing](#-contributing)
-- [ Security Policy](#-security-policy)
-- [ Code of Conduct](#-code-of-conduct)
-- [ License](#-license)
+The app address above is configured in the repository's production deployment script. Availability was not verified during this documentation refresh.
 
----
+## Explore the suite
 
-##  Core Features
+| Experience | Focus |
+| --- | --- |
+| Profile Scanner | GitHub profile and repository evidence with AI-generated summaries |
+| Repository Deep Dive | Repository structure, stack and improvement suggestions |
+| CommitShame | Commit-message feedback with selectable tone |
+| READMErater | README feedback and documentation suggestions |
+| StackRoast | Language and configuration-based stack commentary |
+| Battle Mode | A playful side-by-side profile comparison |
+| Saved results | Stored honest-mode scans, result links and a leaderboard |
 
-*   ** Profile Scanner**
-    Fetches user biography, pinned repositories, language distribution, and real-time contribution statistics via GitHub's GraphQL API. Deliver a humorous "roast" or professional constructive feedback.
-*   ** 1v1 Battle Mode**
-    Pit two GitHub developers against each other! Compares their stats concurrently and generates a detailed, fun battle report determining the supreme winner.
-*   ** Repository Deep Dive**
-    Analyzes specific repositories by mapping their architecture, codebase structure, configuration files (`package.json`, `pom.xml`, etc.), and recent commit quality, providing actionable code improvements.
-*   ** CommitShame**
-    Rates commit message quality and calculates a **Laziness Score** (from 0 to 100). Exposes lazy commits in a dedicated "Hall of Shame".
-*   ** READMErater**
-    Inspects your project/profile readmes, computes a **Uselessness Score**, and provides a list of direct nitpicks to improve your documentation.
-*   ** StackRoast**
-    Analyzes your language distributions and configuration files to roast your tech stack choices.
-*   ** Multi-Persona Roaster**
-    Choose your roaster style! Available personas include:
-    *   **Honest Reviewer**: Balanced, direct, and helpful.
-    *   **Gordon Ramsay**: High-heat cooking roasts.
-    *   **Disappointed Parent**: The guilt-trip audit.
-    *   **Silicon Valley Tech Bro**: Web3, AI, and VC buzzwords galore.
-    *   **Salty Pirate**: Nautical insults and high-seas programming wisdom.
-*   ** Glassmorphic React Dashboard**
-    A dark-themed, premium UI built with Vite and Tailwind CSS featuring interactive feedback cards, live loader animations, and responsive layouts.
+Egg-themed scores and verdicts are generated product outputs, not validated measures of competence, employability, compensation or professional worth. Use the app for exploration and entertainment, not hiring or workplace performance decisions. AI feedback can be inaccurate or omit important context.
 
----
-
-##  The Egg Verdict System
-
-EggScan grades your GitHub profile on a scale of **0 to 100** (the **Egg Score**) and assigns one of five egg-themed personality verdicts based on your codebase health, activity, and profile presentation:
-
-| Verdict | Emoji | Score Range | Tagline | Description |
-| :--- | :---: | :---: | :--- | :--- |
-| **Golden Egg** |  | 80–100 | *recruiter ready* | Exceptional profile. Spotless repositories, active contributions, and perfect presentation. Ready for any recruiter. |
-| **Hard Boiled** |  | 65–79 | *solid profile* | Strong developer presence. Solid repositories and consistent codebase patterns, with a few areas to polish. |
-| **Fresh Egg** |  | 45–64 | *just getting started* | A budding developer profile. Shows clear potential and basic projects, but lacks depth or documentation. |
-| **Cracked** |  | 25–44 | *needs work* | Incomplete or messy profile. Lacks pinned repositories, has sparse contributions, or needs major refactoring. |
-| **Scrambled** |  | 0–24 | *do not apply yet* | Absolute chaos. Little to no activity, missing READMEs, or codebases that need immediate help. |
-
----
-
-##  Project Architecture
-
-EggScan is structured as a monorepo containing decoupled backend (Java) and frontend (React) services:
+## Architecture at a glance
 
 ```text
-eggscan/
-├── backend/                  # Spring Boot 3.3.4 (Java 21) REST API
-│   ├── src/main/java/com/
-│   │   └── eggscan/
-│   │       ├── config/       # Security (CORS), GitHub, Thread Executors & Groq Config
-│   │       ├── controller/   # REST Endpoints (/scan, /battle, /shame, /leaderboard, /health)
-│   │       ├── dto/          # Data Transfer Objects (ScanResponse, BattleResponse, etc.)
-│   │       ├── model/        # Entities for GitHub responses and Persistent Scans
-│   │       ├── repository/   # Spring Data JPA Repository (ScanRecordRepository)
-│   │       └── service/      # Logic (Groq, GitHub GraphQL/REST, Scan Orchestrator, ReadmeService)
-│   ├── pom.xml               # Maven Dependency Management
-│   ├── .env.example          # Environment Template for Backend
-│   └── .env                  # Local Environment Variables (Git ignored)
-│
-├── frontend/                 # Vite + React Client
-│   ├── src/
-│   │   ├── api/              # API Integration Service (eggscan.js)
-│   │   ├── components/       # Visual Cards, Verdicts, Forms, Battle & Animations
-│   │   │   └── ScanResultComponents/ # Detailed layout cards (KeyRepositories, RepoItem, DetailedStats)
-│   │   ├── pages/            # View Pages (Home, CommitShame, ReadmeRater, StackRoast)
-│   │   ├── App.jsx           # React Routing (react-router-dom) Setup
-│   │   ├── index.css         # Glassmorphism & Custom Tailwind CSS styles
-│   │   └── main.jsx          # React Mounting Entry Point
-│   ├── tailwind.config.js    # Design Tokens & Styles Configuration
-│   └── package.json          # Node Dependencies & Custom Scripts
-│
-├── .gitignore                # Global Git Rules
-├── CONTRIBUTING.md           # Collaboration Guidelines
-├── CODE_OF_CONDUCT.md        # Participant Expectations
-└── SECURITY.md               # Security Disclosures & Vulnerability Reporting
+React + Vite interface
+        |
+    same-origin /api
+        |
+Cloudflare Worker: Hono + TypeScript + Zod
+        |                 |                 |
+   GitHub APIs        AI providers        D1 storage
 ```
 
----
+The current frontend includes the Worker, D1 migration and Cloudflare Vite integration. The original **Java 21 / Spring Boot 3.3.4 / PostgreSQL** backend remains in `backend/` as the retained alternative/rollback codebase. The two paths are not interchangeable without configuration and verification.
 
-##  Getting Started
+| Area | Current Worker path |
+| --- | --- |
+| Interface | React 18, React Router, Tailwind CSS 3 |
+| Build | Vite 7 with the Cloudflare Vite plugin |
+| API | Hono, TypeScript and Zod schemas |
+| Storage | Cloudflare D1 |
+| Evidence | GitHub REST/GraphQL integration |
+| AI | Configurable provider adapters and fallback orchestration |
+| Tests | Vitest and React Testing Library; Java tests retained separately |
 
-### Prerequisites
-Before running the application, make sure you have installed:
-*   [Java Development Kit (JDK) 21+](https://adoptium.net/temurin/releases/?version=21)
-*   [PostgreSQL Database](https://www.postgresql.org/) (Running on localhost or accessible via cloud)
-*   [Node.js 18+](https://nodejs.org/) (npm 9+)
+Versions above describe manifest declarations, not a freshly installed environment.
 
----
+## Run locally
 
-### Backend Setup (Spring Boot)
+Use Node.js/npm compatible with `frontend/package.json` and its dependencies. Use a real Git checkout: the Vite configuration calls `git rev-parse` to create its build marker.
 
-1.  Navigate to the backend directory:
-    ```bash
-    cd backend
-    ```
-2.  Create your local environment file:
-    ```bash
-    cp .env.example .env
-    ```
-3.  Open `.env` and fill in your credentials (see [Configuration](#-configuration--environment-variables) below):
-    ```env
-    GITHUB_TOKEN=your_personal_access_token
-    GROQ_API_KEY=your_groq_api_key
-    DB_URL=jdbc:postgresql://localhost:5432/postgres
-    DB_USERNAME=postgres
-    DB_PASSWORD=your_postgres_password
-    ```
-4.  Build and run the Spring Boot application using Maven:
-    ```bash
-    # If maven is installed globally:
-    mvn clean spring-boot:run
-    ```
-    The server will start on **`http://localhost:8080`**. You can verify it is running by hitting the health check endpoint: [http://localhost:8080/api/health](http://localhost:8080/api/health).
+From the repository root, using PowerShell:
 
----
-
-### Frontend Setup (Vite + React)
-
-1.  Navigate to the frontend directory:
-    ```bash
-    cd frontend
-    ```
-2.  Install the package dependencies:
-    ```bash
-    npm install
-    ```
-3.  Start the local development server:
-    ```bash
-    npm run dev
-    ```
-    The web client will launch on **`http://localhost:5173`** (or another port outputted to the console). It will automatically proxy API requests to the backend server.
-
----
-
-##  Configuration & Environment Variables
-
-### Backend Configuration
-The backend depends on the following keys set in `backend/.env`:
-
-| Variable Name | Required | Description | Default | Link |
-| :--- | :--- | :--- | :--- | :--- |
-| `GITHUB_TOKEN` | **Yes** | Classic Personal Access Token or Fine-Grained Token to bypass rate limits. | N/A | [GitHub Settings](https://github.com/settings/tokens) |
-| `GROQ_API_KEY` | **Yes** | Groq Cloud platform token used for fast Llama model queries. | N/A | [Groq Console](https://console.groq.com/keys) |
-| `DB_URL` | No | PostgreSQL database connection URL. | `jdbc:postgresql://localhost:5432/postgres` | N/A |
-| `DB_USERNAME` | No | Database username. | `postgres` | N/A |
-| `DB_PASSWORD` | No | Database password. | (Empty) | N/A |
-
-### Frontend Configuration
-By default, the React client points to `http://localhost:8080`. If you run the API backend on a different port or host, specify it in your shell environment or a `.env` file inside the `frontend/` directory:
-
-```env
-VITE_API_URL=https://api.yourdomain.com
+```powershell
+cd frontend
+npm install
+Copy-Item .dev.vars.example .dev.vars
 ```
 
----
+Edit `.dev.vars` with your own server-side credentials. The Wrangler configuration declares `GITHUB_TOKEN` and `GROQ_API_KEY` as required. Optional provider keys are listed in the example; do not leave placeholder values enabled as though they were valid credentials.
 
-##  Performance & Technical Highlights
+Then initialise the local D1 schema and start development:
 
-*   **CompletableFuture Concurrency**: Combines asynchronous thread pools to fetch user profiles and repository listings in parallel, speeding up the scan time by ~50%. Pit-stops for 1v1 battles are also fully parallelized.
-*   **Reactive Network Config Fetching**: In deep-dive analysis, configuration files are scraped from repository structures using Non-blocking Spring WebClient and Project Reactor (`Flux.flatMapSequential`). This handles network-bound operations with maximum throughput and zero thread blocking.
-*   **Caching Strategy**: Scans run in `honest` mode are persisted to PostgreSQL for 24 hours. Subsequent loads (e.g., via permalinks) are served directly from the cache to conserve API rate limits.
-*   **Leaderboard Integration**: Cached profiles populate a top 10 leaderboard sorted by the highest Egg Scores.
-*   **Resiliency & Defensiveness**: Configured explicit `responseTimeout` on WebClients to prevent thread starvation during GitHub API outages. Input validators strictly format usernames, repository names, and query parameter inputs.
+```powershell
+npm run db:migrate:local
+npm run dev
+```
 
----
+Use the local address printed by Vite. The browser API client uses relative `/api` paths; the old `VITE_API_URL` setup does not configure the current client.
 
-##  Contributing
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Please read our [CONTRIBUTING.md](CONTRIBUTING.md) to learn how to open pull requests, submit issues, and write clean code for EggScan.
+The checked-in D1 binding points to an existing deployment's database. Do not apply remote migrations or deploy a fork until its account, database binding and target have been reviewed. See the [deployment guide](frontend/README-MIGRATION.md).
 
----
+## Check the project
 
-##  Security Policy
-If you discover a security vulnerability within EggScan, please review our [SECURITY.md](SECURITY.md) guidelines on how to report it privately. **Do not create public GitHub issues for security vulnerabilities.**
+From `frontend/`:
 
----
+```powershell
+npm run typecheck
+npm test
+npm run build
+```
 
-##  Code of Conduct
-We want to make participation in this project a welcoming and harassment-free experience for everyone. By collaborating on this project, you agree to adhere to the Contributor Covenant [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+The build script runs the repository's emoji check, Vite build, production-asset check and distribution-secret check. These are useful gates, not proof of complete security or correct live-provider behaviour.
 
----
+No dependency installation, tests or build were executed for this documentation refresh. No lockfile was included in the supplied text export; use a current repository lockfile if available rather than treating dependency ranges as a reproducible installation.
 
-##  License
-Distributed under the MIT License. See `LICENSE` for more information.
+## AI and data boundaries
+
+The Worker orchestration includes Groq, Gemini, Cerebras, NVIDIA NIM, OpenRouter and Workers AI adapters. Providers are selected according to configuration and runtime availability. Code support does not establish that every provider is enabled, free, reachable or production-tested.
+
+Repository evidence sent for analysis may reach configured fallback providers. Review provider choices and data handling before scanning sensitive material. Public GitHub content can still contain personal information or accidentally exposed secrets.
+
+Honest-mode scans use a 24-hour cache lookup and are persisted in D1. That lookup window is **not** an automatic deletion or retention policy. Stored result links and leaderboard responses expose selected scan data through API routes; do not treat them as private records.
+
+## Project layout
+
+```text
+frontend/
+  src/             React pages, components and API client
+  worker/          Hono API, GitHub access, AI orchestration and storage
+  migrations/      D1 schema migration
+  scripts/         Build checks and production deployment helper
+  wrangler.jsonc   Worker, assets, D1 and AI bindings
+backend/           Retained Java/Spring Boot implementation
+```
+
+## Contributing and security
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the existing [Code of Conduct](CODE_OF_CONDUCT.md). Report only checks actually performed and keep credentials out of commits, screenshots and generated assets.
+
+## Licence
+
+Source code is distributed under the [MIT License](LICENSE), with the existing EggScan Contributors attribution retained. Third-party APIs, models and services have their own terms.

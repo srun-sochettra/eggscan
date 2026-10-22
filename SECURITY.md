@@ -1,44 +1,33 @@
-#  Security Policy
+# Security policy
 
-We take security seriously at EggScan. If you discover a vulnerability, we appreciate your help in disclosing it to us in a responsible manner.
+## Reporting a concern
 
----
+Do not publish credentials, private repository data or actionable exploit details in a public issue. Use a private reporting feature only if it is actually enabled on the repository, or request a verified private contact from the maintainer without posting the sensitive details.
 
-## Supported Versions
+No dedicated security email, supported-version schedule, acknowledgement deadline or remediation deadline is established by the supplied repository evidence. This policy deliberately makes no unverified operational commitment.
 
-Currently, security updates are actively provided for the following versions:
+Include the affected implementation path, commit, minimal reproduction, expected/observed behaviour and redacted evidence. If credentials have been exposed, revoke or rotate them rather than relying only on removing a file.
 
-| Version | Supported |
-| :--- | :---: |
-| 1.0.x |    |
-| < 1.0.0 |    |
+## Credential boundaries
 
----
+Worker credentials belong in local .dev.vars or deployment secrets, not browser variables or public assets. The Java backend has separate environment configuration. Keep both sets out of commits, screenshots, logs and model prompts.
 
-## Reporting a Vulnerability
+Build scripts inspect generated assets and attempt to remove development-variable files. Their presence is not a guarantee that every secret format or disclosure path is covered. Review the actual artefacts before publishing.
 
-**Please do not report security vulnerabilities via public GitHub issues.**
+## AI and repository evidence
 
-Instead, please send security reports privately to:
-*   **Email:** `security@eggscan.dev` (or the repository owner's contact email)
+Repository metadata, README text, commit messages and selected source/configuration evidence may be transmitted to configured AI providers. Fallback can send evidence to more than one provider. Review the configured chain and applicable data handling before processing sensitive content.
 
-### What to Include
-To help us triage and resolve the issue quickly, please include:
-1.  A detailed description of the vulnerability and its potential impact.
-2.  Step-by-step instructions to reproduce the issue (or a proof-of-concept script).
-3.  Any relevant screenshots, headers, or payloads.
+Treat fetched content and model output as untrusted. Runtime schemas constrain response shape; they do not establish factual correctness, prompt-injection immunity or permission to act on generated advice.
 
-### Our Commitment
-If you report a vulnerability, we will:
-*   Acknowledge receipt of your report within **48 hours**.
-*   Work to verify and reproduce the vulnerability.
-*   Keep you updated on our progress toward a fix.
-*   Coordinate a public disclosure date once a patch is released (crediting you for the discovery if desired).
+## Persistence and public access
 
----
+Honest-mode results are stored in D1. The 24-hour cache lookup is not automatic deletion. The Worker exposes result-by-ID and leaderboard routes; an unguessable ID is not an authentication policy. Do not assume stored results are private.
 
-## Out of Scope
-Please note that the following are considered out of scope:
-*   Vulnerabilities in third-party services (e.g., Groq API, GitHub APIs themselves).
-*   Standard API rate-limiting issues (unless they can be used to crash the backend server).
-*   Issues requiring physical access to a developer's local machine or source files.
+Review data minimisation, retention/deletion, API access controls, rate/cost abuse and output handling before broadening deployment. These are review priorities, not claims that this documentation implemented protections.
+
+## Scope
+
+Report application-side misuse of third-party APIs and dependencies when relevant. Do not assume rate-limit or cost-abuse concerns are harmless merely because an upstream service is involved. Test only systems you own or are authorised to assess.
+
+This documentation refresh is not a security audit and does not change application behaviour.

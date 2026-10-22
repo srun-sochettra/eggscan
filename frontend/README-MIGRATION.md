@@ -1,94 +1,83 @@
-# EggScan Cloudflare migration overlay
+# Worker setup and deployment
 
-This package replaces the Render/Spring Boot/Supabase backend with a TypeScript Cloudflare Worker and D1 while keeping the existing React UI.
+The frontend now includes a TypeScript Worker and D1 implementation alongside the React UI. This guide replaces the earlier one-time overlay-copy instructions. Do not recopy migration scaffolding over the current source.
 
-## Apply to the repository
+## Local development
 
-Copy the contents of this package into `frontend/`:
+Follow the [root README](../README.md): install dependencies in frontend/, copy .dev.vars.example to .dev.vars, set real local credentials, apply the local migration and run the development server.
 
-- replace `frontend/package.json`
-- replace `frontend/vite.config.js`
-- replace `frontend/src/api/eggscan.js`
-- add `frontend/wrangler.jsonc`
-- add `frontend/worker/`
-- add `frontend/migrations/`
-
-Keep `backend/` during the cutover as a rollback path. Do not delete it yet.
-
-## Provision Cloudflare
-
-From `frontend/`:
-
-```bash
-npm install
-npx wrangler login
-npx wrangler d1 create eggscan
-```
-
-Copy the returned database ID into `wrangler.jsonc`, replacing `REPLACE_WITH_D1_DATABASE_ID`.
-
-Add secrets:
-
-```bash
-npx wrangler secret put GITHUB_TOKEN
-npx wrangler secret put GROQ_API_KEY
-npx wrangler secret put GEMINI_API_KEY
-npx wrangler secret put CEREBRAS_API_KEY
-npx wrangler secret put NVIDIA_API_KEY
-npx wrangler secret put OPENROUTER_API_KEY
-```
-
-Configure AI Providers and Fallback Chain:
-1. **Groq** (Primary, `GROQ_MODEL`: `openai/gpt-oss-120b`, configured via `GROQ_API_KEY`)
-2. **Google Gemini** (`GEMINI_MODEL`: `gemini-2.5-flash`, configured via `GEMINI_API_KEY`)
-3. **Cerebras** (`CEREBRAS_MODEL`: `llama3.1-8b`, configured via `CEREBRAS_API_KEY`)
-4. **NVIDIA NIM** (`NVIDIA_MODEL`: `meta/llama-3.1-8b-instruct`, configured via `NVIDIA_API_KEY`)
-5. **OpenRouter Free Router** (`OPENROUTER_MODEL`: `openrouter/free`, configured via `OPENROUTER_API_KEY`)
-6. **Cloudflare Workers AI** (`WORKERS_AI_MODEL`: `@cf/meta/llama-3.1-8b-instruct-fp8`, via `"ai": { "binding": "AI" }`)
-
-*Privacy Notice*: Repository evidence (sanitized metadata, commit messages, and readmes) may be transmitted to each fallback provider in the configured chain when upstream providers fail or rate limit. Never log or store raw secrets or client tokens.
-
-- Regenerate binding types: `npm run cf-typegen`
-
-
-Apply the database migration:
-
-```bash
-npm run db:migrate:remote
-```
-
-Develop locally:
-
-```bash
+```powershell
 npm run db:migrate:local
 npm run dev
 ```
 
-Deploy:
+The current browser client uses same-origin /api requests. Changing VITE_API_URL alone does not reconnect it to the retained Spring service.
 
-```bash
-npm run deploy
+## Deployment configuration
+
+Inspect wrangler.jsonc before any remote action. It declares the Worker entry point, dist/client assets, API-first routing, a DB binding, an AI binding, model variables and required secret names.
+
+The checked-in database ID belongs to the existing configuration. For a separate deployment, provision your own database and replace the binding with its returned ID. Do not reuse another deployment's binding blindly.
+
+The existing provisioning workflow is:
+
+```powershell
+npx wrangler login
+npx wrangler d1 create eggscan
 ```
 
-## Verification gate
+Review account and resource names before running these commands. They authenticate to or create resources in a Cloudflare account; they were not executed during this refresh.
 
-Before directing traffic away from Vercel/Render:
+Set deployment secrets through Wrangler rather than putting values in public configuration:
 
-1. `GET /api/health` returns HTTP 200.
-2. Scan a known GitHub username twice; the second honest scan should return the same cached ID within 24 hours.
-3. Open `/?id=<id>` directly and refresh it.
-4. Test leaderboard uniqueness and ordering.
-5. Test battle, deep dive, commit review, README review, and stack review.
-6. Inspect Worker logs for upstream timeout or AI validation errors.
-7. Keep the old deployment available until these checks pass.
+```powershell
+npx wrangler secret put GITHUB_TOKEN
+npx wrangler secret put GROQ_API_KEY
+```
 
-## Supabase data migration
+Optional provider secret names are GEMINI_API_KEY, CEREBRAS_API_KEY, NVIDIA_API_KEY and OPENROUTER_API_KEY. Workers AI uses the configured AI binding. Review provider availability and cost separately; no entitlement or free usage is promised.
 
-This overlay does not silently migrate old records. Export the Supabase `scan_records` table before shutdown. If old shared result URLs matter, transform the export to the D1 columns in `migrations/0001_scan_records.sql`, import it, compare row counts, and sample old IDs before cutover.
+Binding types can be regenerated with:
 
-## Known follow-up work
+```powershell
+npm run cf-typegen
+```
 
-- Add Cloudflare Rate Limiting or Turnstile before public promotion.
-- Add Worker integration tests using Cloudflare's Vitest pool.
-- Add scheduled retention cleanup for old scan records if desired.
-- Replace generated dependency ranges with a lockfile after `npm install`.
+## Database migration
+
+The repository includes migrations/0001_scan_records.sql. The local and remote commands target different environments:
+
+```powershell
+npm run db:migrate:local
+npm run db:migrate:remote
+```
+
+The remote command changes the configured remote database. Confirm the account, binding, schema and recovery plan before running it. This guide does not authorise a production migration or claim that a backup exists.
+
+## Build and release helpers
+
+The manifest includes both deploy and deploy:production scripts. The production helper builds, performs a Wrangler dry run using generated configuration, deploys and checks the configured production HTML marker/module response.
+
+```powershell
+npm run typecheck
+npm test
+npm run build
+```
+
+After reviewing the target and authorising the remote change, the existing production helper is:
+
+```powershell
+npm run deploy:production
+```
+
+**Fork warning:** scripts/deploy-production.mjs contains the existing production URL as a literal. Inspect and adapt that target before using the helper for another deployment. A successful HTML/module check would not prove live AI requests, D1 persistence or every route works.
+
+## Retained Java backend
+
+backend/ remains the Java 21 / Spring Boot / PostgreSQL implementation, retained by the migration material as an alternative/rollback path. Keeping its files does not establish a tested operational rollback.
+
+Its application configuration reads DB_URL, DB_USERNAME, DB_PASSWORD, GITHUB_TOKEN and GROQ_API_KEY. The example file is not a complete database provisioning workflow. Verify database setup, runtime configuration, browser API routing and API compatibility before switching paths.
+
+## Verification boundary
+
+These commands and behaviours were checked against the supplied scripts/configuration. No provisioning, secret update, migration, build, deployment or live API verification was performed for this refresh.
