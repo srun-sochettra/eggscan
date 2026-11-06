@@ -21,7 +21,9 @@ const MIN_PROVIDER_TIME_MS = 4_000
 
 const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b'
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
-const DEFAULT_CEREBRAS_MODEL = 'llama3.1-8b'
+// llama3.1-8b was deprecated by Cerebras on 2026-05-27 (requests now 404); GPT OSS 120B is the
+// replacement Cerebras recommends and is listed in its current shared-inference catalog.
+const DEFAULT_CEREBRAS_MODEL = 'gpt-oss-120b'
 const DEFAULT_NVIDIA_MODEL = 'meta/llama-3.1-8b-instruct'
 const DEFAULT_OPENROUTER_MODEL = 'openrouter/free'
 const DEFAULT_WORKERS_AI_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8'
@@ -325,12 +327,23 @@ export async function groqJson<T>(
       const category = getFailureCategory(error)
 
       if (!isRetryableProviderError(error)) {
-        console.error('AI provider failed with non-retryable error', {
+        if (provider.isPrimary) {
+          console.error('AI provider failed with non-retryable error', {
+            provider: provider.name,
+            model: provider.model,
+            failureCategory: category,
+          })
+          throw error
+        }
+        // A broken optional fallback (retired model, bad key, rejected request) must not take down
+        // the rest of the chain: one dead Cerebras model previously blocked OpenRouter and Workers AI.
+        console.error('AI fallback provider failed with non-retryable error; skipping it', {
           provider: provider.name,
           model: provider.model,
           failureCategory: category,
         })
-        throw error
+        recordCircuitFailure(provider.name)
+        continue
       }
 
       recordCircuitFailure(provider.name)

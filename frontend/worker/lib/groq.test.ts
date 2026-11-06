@@ -295,6 +295,28 @@ describe('Multi-Provider AI Fallback Pipeline', () => {
     expect(fakeAi.run).toHaveBeenCalledTimes(1)
   })
 
+  it('a dead optional fallback (Cerebras 404, unrecognised body) is skipped instead of aborting the chain', async () => {
+    vi.mocked(fetch).mockImplementation(async (url) => {
+      const urlStr = String(url)
+      if (urlStr.includes('api.groq.com')) return { ok: false, status: 429 } as Response
+      if (urlStr.includes('generativelanguage.googleapis.com')) return { ok: false, status: 429 } as Response
+      if (urlStr.includes('api.cerebras.ai')) return { ok: false, status: 404, json: async () => ({ message: 'Not found' }) } as unknown as Response
+      if (urlStr.includes('integrate.api.nvidia.com')) return { ok: false, status: 401 } as Response
+      if (urlStr.includes('openrouter.ai')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ choices: [{ message: { content: JSON.stringify({ answer: 'openrouter-success' }) } }] }),
+        } as unknown as Response
+      }
+      return { ok: false, status: 404 } as Response
+    })
+
+    const result = await groqJson(fakeEnv, 'System prompt', { some: 'evidence' }, TestSchema)
+    expect(result).toEqual({ answer: 'openrouter-success' })
+    expect(fetch).toHaveBeenCalledTimes(5)
+  })
+
   it('8. Non-retryable 401 auth error stops chain safely without fallback loop', async () => {
     vi.mocked(fetch).mockImplementation(async (url) => {
       const urlStr = String(url)

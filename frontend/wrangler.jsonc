@@ -22,7 +22,7 @@
   "vars": {
     "GROQ_MODEL": "openai/gpt-oss-120b",
     "GEMINI_MODEL": "gemini-2.5-flash",
-    "CEREBRAS_MODEL": "llama3.1-8b",
+    "CEREBRAS_MODEL": "gpt-oss-120b",
     "NVIDIA_MODEL": "meta/llama-3.1-8b-instruct",
     "OPENROUTER_MODEL": "openrouter/free",
     "WORKERS_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct-fp8"
