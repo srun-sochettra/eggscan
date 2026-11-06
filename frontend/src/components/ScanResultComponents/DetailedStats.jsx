@@ -22,11 +22,14 @@ export default function DetailedStats({ data }) {
       )}
       <div className="grid grid-cols-2 gap-4">
         <StatBox label="Total Stars" value={data.rawData?.totalStars || 0} />
-        <StatBox label="Commits (1y)" value={data.stats?.totalContributionsLastYear || 0} />
+        <StatBox label="Contributions (1y)" value={data.stats?.totalContributionsLastYear || 0} />
         <StatBox label="Issues Opened" value={data.stats?.totalIssues || 0} />
         <StatBox label="Pull Requests" value={data.stats?.totalPullRequests || 0} />
         <StatBox label="Active Repos" value={data.rawData?.activeRepos || 0} />
-        <StatBox label="Repos w/ README" value={data.rawData?.reposWithReadme || 0} />
+        <StatBox
+          label={data.rawData?.readmeSampleSize ? `READMEs (top ${data.rawData.readmeSampleSize} repos)` : 'Repos w/ README'}
+          value={data.rawData?.reposWithReadme || 0}
+        />
       </div>
       {data.rawData?.languageBreakdown && Object.keys(data.rawData.languageBreakdown).length > 0 && (
         <div className="mt-4">

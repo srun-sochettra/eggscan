@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 export const UsernameSchema = z.string().regex(/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/)
-export const RepoSchema = z.string().regex(/^[a-zA-Z0-9._-]{1,100}$/)
-export const BranchSchema = z.string().min(1).max(255).regex(/^[a-zA-Z0-9._/-]+$/)
+export const RepoSchema = z.string().regex(/^[a-zA-Z0-9._-]{1,100}$/).refine((value) => value !== '.' && value !== '..', 'Invalid repository name')
+export const BranchSchema = z.string().min(1).max(255).regex(/^[a-zA-Z0-9._/-]+$/).refine((value) => !value.split('/').some((part) => part === '' || part === '.' || part === '..'), 'Invalid branch name')
 export const IdSchema = z.string().uuid()
 export const ToneSchema = z.enum(['honest', 'professional', 'roast', 'hype', 'pirate', 'gordon', 'parent', 'techbro'])
 export const VerdictSchema = z.enum(['Golden Egg', 'Hard Boiled', 'Fresh Egg', 'Cracked', 'Scrambled'])
@@ -16,7 +16,7 @@ export const AiInsightsSchema = z.object({
   eggVerdict: VerdictSchema,
 })
 
-export const BattleAiSchema = z.object({ winner: UsernameSchema, report: z.string().min(1).max(1800) })
+export const BattleAiSchema = z.object({ winner: z.string().min(1).max(100), report: z.string().min(1).max(1800) })
 export const CommitShameSchema = z.object({
   summary: z.string().min(1).max(500),
   lazinessScore: z.coerce.number().int().min(0).max(100),

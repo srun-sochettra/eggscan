@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { toBlob } from 'html-to-image';
 
 export default function BattleResult({ data }) {
-    const isU1Winner = data.winnerUsername === data.user1.username;
+    const isU1Winner = String(data.winnerUsername).toLowerCase() === String(data.user1.username).toLowerCase();
     const reportRef = useRef(null);
 
     const handleShare = async () => {

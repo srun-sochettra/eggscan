@@ -51,6 +51,8 @@ const dryRunOutput = captureNpm(['exec', '--', 'wrangler', 'deploy', '--config',
 if (!/Read \d+ files from the assets directory .*dist[\\/]client/i.test(dryRunOutput)) {
   throw new Error(`Canonical deploy failed: Wrangler dry run did not resolve dist/client. Output:\n${dryRunOutput}`)
 }
+// Schema must be migrated before the new Worker (which writes scan_records.mode) goes live.
+runNpm(['run', 'db:migrate:remote'])
 runNpm(['exec', '--', 'wrangler', 'deploy', '--config', generatedConfigPath])
 
 const deadline = Date.now() + 120_000

@@ -6,10 +6,12 @@ export async function fetchJson<T>(url: string, init: RequestInit, timeoutMs = 1
   try {
     const response = await fetch(url, { ...init, signal: controller.signal })
     if (!response.ok) {
-      if (response.status === 429) {
+      const rateLimitExhausted = response.status === 403 && response.headers?.get?.('x-ratelimit-remaining') === '0'
+      if (response.status === 429 || rateLimitExhausted) {
         throw new AppError(429, 'UPSTREAM_RATE_LIMITED', 'An upstream service is temporarily rate limited. Please wait and try again.')
       }
-      const status = response.status === 404 ? 404 : 502
+      // GitHub answers 409 for empty repositories; treat that as missing content.
+      const status = response.status === 404 || response.status === 409 ? 404 : 502
       throw new AppError(status, 'UPSTREAM_ERROR', `An upstream service returned HTTP ${response.status}.`)
     }
     return await response.json<T>()

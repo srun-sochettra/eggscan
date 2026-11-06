@@ -44,6 +44,27 @@ describe('Worker API Endpoints with AI Fallback', () => {
     expect(json).toEqual({ status: 'ok', service: 'eggscan-worker' })
   })
 
+  it('invalid username returns 400 instead of 500', async () => {
+    const res = await app.request('/api/scan/-bad--name-', {}, fakeEnv)
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({ error: { code: 'INVALID_INPUT' } })
+  })
+
+  it('battle against yourself is rejected', async () => {
+    const res = await app.request('/api/battle?u1=octocat&u2=OctoCat', {}, fakeEnv)
+    expect(res.status).toBe(400)
+  })
+
+  it('commit shame with no commits returns 404 instead of roasting nothing', async () => {
+    vi.mocked(fetch).mockImplementation(async (url) => {
+      if (String(url).includes('api.github.com/users/octocat/repos')) return { ok: true, status: 200, json: async () => [] } as unknown as Response
+      return { ok: false, status: 404 } as Response
+    })
+    const res = await app.request('/api/shame/commits/octocat', {}, fakeEnv)
+    expect(res.status).toBe(404)
+    await expect(res.json()).resolves.toMatchObject({ error: { code: 'NO_COMMITS_FOUND' } })
+  })
+
   it('GitHub profile 404 returns username-specific error code', async () => {
     vi.mocked(fetch).mockImplementation(async (url) => {
       if (String(url).includes('api.github.com/users/missing-user')) return { ok: false, status: 404 } as Response
@@ -61,19 +82,11 @@ describe('Worker API Endpoints with AI Fallback', () => {
     // 1. Mock GitHub commits fetch
     vi.mocked(fetch).mockImplementation(async (url) => {
       const urlStr = String(url)
-      if (urlStr.includes('api.github.com/users/octocat/events')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => [
-            {
-              type: 'PushEvent',
-              payload: {
-                commits: [{ message: 'fix typo in docs' }, { message: 'wip' }],
-              },
-            },
-          ],
-        } as unknown as Response
+      if (urlStr.includes('api.github.com/users/octocat/repos')) {
+        return { ok: true, status: 200, json: async () => [{ name: 'demo', fork: false, pushed_at: '2026-10-01T00:00:00Z' }] } as unknown as Response
+      }
+      if (urlStr.includes('api.github.com/repos/octocat/demo/commits')) {
+        return { ok: true, status: 200, json: async () => [{ commit: { message: 'fix typo in docs' } }, { commit: { message: 'wip' } }] } as unknown as Response
       }
       if (urlStr.includes('api.groq.com')) {
         // Groq is rate limited
@@ -128,19 +141,11 @@ describe('Worker API Endpoints with AI Fallback', () => {
   it('returns sanitized error response when all AI providers fail', async () => {
     vi.mocked(fetch).mockImplementation(async (url) => {
       const urlStr = String(url)
-      if (urlStr.includes('api.github.com/users/octocat/events')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => [
-            {
-              type: 'PushEvent',
-              payload: {
-                commits: [{ message: 'feat: add button' }],
-              },
-            },
-          ],
-        } as unknown as Response
+      if (urlStr.includes('api.github.com/users/octocat/repos')) {
+        return { ok: true, status: 200, json: async () => [{ name: 'demo', fork: false, pushed_at: '2026-10-01T00:00:00Z' }] } as unknown as Response
+      }
+      if (urlStr.includes('api.github.com/repos/octocat/demo/commits')) {
+        return { ok: true, status: 200, json: async () => [{ commit: { message: 'feat: add button' } }] } as unknown as Response
       }
       if (urlStr.includes('api.groq.com')) {
         return {

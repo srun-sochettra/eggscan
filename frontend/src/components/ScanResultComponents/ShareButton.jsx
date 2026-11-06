@@ -14,7 +14,7 @@ export default function ShareButton({ data, resultRef }) {
   const [copied, setCopied] = useState(false)
 
   const buildShareText = () => {
-    const topSkills = data.skills.slice(0, 3).join(', ')
+    const topSkills = (data.skills ?? []).slice(0, 3).join(', ')
     const tagline =
       TAGLINES[data.eggVerdict] || 'rated in eggs'
 
@@ -41,15 +41,19 @@ ${shareUrl}`
           text,
         })
         return
-      } catch {
-        // user cancelled → fall back to clipboard
+      } catch (error) {
+        // The user dismissed the share sheet: respect that instead of silently copying.
+        if (error?.name === 'AbortError') return
       }
     }
 
-    await navigator.clipboard.writeText(text)
-
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2200)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2200)
+    } catch (error) {
+      console.error('Clipboard write failed', error)
+    }
   }
 
   const tweetUrl = () => {
@@ -62,7 +66,7 @@ Get rated ↓`
     return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
       tweet
     )}&url=${encodeURIComponent(
-      window.location.origin
+      data.id ? `${window.location.origin}/?id=${data.id}` : window.location.origin
     )}`
   }
 

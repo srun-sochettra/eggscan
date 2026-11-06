@@ -12,7 +12,7 @@ export default function Leaderboard({ onScan }) {
     setError(null);
     try {
       const data = await getLeaderboard();
-      setLeaderboard(data);
+      setLeaderboard(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
       setError('Failed to load leaderboard. Please try again.');
@@ -58,10 +58,12 @@ export default function Leaderboard({ onScan }) {
             if (e.target === e.currentTarget) setIsOpen(false);
           }}
         >
-          <div className="bg-[#FFFDF7] rounded-3xl shadow-xl border-4 border-brown-700 w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh] animate-[pop_0.2s_ease-out]">
+          <div role="dialog" aria-modal="true" aria-labelledby="leaderboard-title" className="bg-[#FFFDF7] rounded-3xl shadow-xl border-4 border-brown-700 w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh] animate-[pop_0.2s_ease-out]">
             <div className="p-5 border-b-4 border-brown-700 flex justify-between items-center bg-[#FCE9B8]">
-              <h2 className="font-display font-black text-2xl text-brown-700">Hall of Fame</h2>
+              <h2 id="leaderboard-title" className="font-display font-black text-2xl text-brown-700">Hall of Fame</h2>
               <button
+                type="button"
+                autoFocus
                 onClick={() => setIsOpen(false)}
                 aria-label="Close leaderboard"
                 className="text-brown-700 font-bold text-xl hover:scale-110 transition-transform focus-visible:ring-2 focus-visible:ring-brown-500 outline-none rounded"

@@ -44,19 +44,33 @@ export default function ScanResult({ data }) {
           rotate="rotate-1"
         >
           <div className="flex flex-wrap gap-2">
-            {data.skills.length === 0 && (
+            {(data.skills ?? []).length === 0 && (
               <span className="text-brown-400 text-sm italic">
                 Nothing concrete detected.
               </span>
             )}
 
-            {data.skills.map((skill) => (
-              <span key={skill} className="chip">
+            {(data.skills ?? []).map((skill, idx) => (
+              <span key={`${skill}-${idx}`} className="chip">
                 {skill}
               </span>
             ))}
           </div>
         </InsightCard>
+
+      {(data.improvements ?? []).length > 0 && (
+        <InsightCard
+          icon={<IconCone />}
+          title="What to fix first"
+          rotate="-rotate-1"
+        >
+          <ul className="list-disc pl-5 space-y-1.5 text-brown-600">
+            {data.improvements.map((item, idx) => (
+              <li key={idx}>{item}</li>
+            ))}
+          </ul>
+        </InsightCard>
+      )}
 
       <InsightCard
         icon={<IconSparkle />}

@@ -6,7 +6,12 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 function buildMarker() {
-  const commit = execSync('git rev-parse --short=12 HEAD', { encoding: 'utf8' }).trim()
+  let commit = 'nogit'
+  try {
+    commit = execSync('git rev-parse --short=12 HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  } catch {
+    // Building from a ZIP/export without .git must not crash the build.
+  }
   const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
   return `${commit}-${timestamp}`
 }

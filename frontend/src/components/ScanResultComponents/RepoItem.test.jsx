@@ -65,7 +65,7 @@ describe('RepoItem Component', () => {
     expect(screen.getByText(/Analyzing architecture/i)).toBeInTheDocument();
 
     // API should be called with correct arguments
-    expect(deepDiveRepo).toHaveBeenCalledWith(mockUsername, mockRepo.name);
+    expect(deepDiveRepo).toHaveBeenCalledWith(mockUsername, mockRepo.name, mockRepo.defaultBranch);
 
     // Resolve the promise
     resolvePromise(mockAnalysis);
@@ -150,7 +150,7 @@ describe('RepoItem Component', () => {
     expect(screen.getByText(/Analyzing architecture/i)).toBeInTheDocument();
 
     // API should be called with correct arguments
-    expect(deepDiveRepo).toHaveBeenCalledWith(mockUsername, mockRepo.name);
+    expect(deepDiveRepo).toHaveBeenCalledWith(mockUsername, mockRepo.name, mockRepo.defaultBranch);
 
     // Reject the promise
     rejectPromise(error);

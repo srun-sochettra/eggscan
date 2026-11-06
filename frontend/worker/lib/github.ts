@@ -41,12 +41,22 @@ export async function scanGitHub(env: Env, username: string) {
     fetchJson<GitHubRepo[]>(`${API}/users/${encodeURIComponent(username)}/repos?per_page=100&sort=updated`, { headers: headers(env) }),
     fetchStats(env, username),
   ])
-  const own = repos.filter((repo) => !repo.fork)
+  // Keep only the fields we use: raw GitHub objects are ~5 KB each, which blew the
+  // AI evidence budget (10k chars) on a couple of repos and bloated stored payloads.
+  const own: GitHubRepo[] = repos.filter((repo) => !repo.fork).map((repo) => ({
+    name: repo.name, description: repo.description, language: repo.language,
+    stargazers_count: repo.stargazers_count ?? 0, fork: false, pushed_at: repo.pushed_at,
+    default_branch: repo.default_branch,
+  }))
   const languageBreakdown: Record<string, number> = {}
   for (const repo of own) if (repo.language) languageBreakdown[repo.language] = (languageBreakdown[repo.language] ?? 0) + 1
   const activeCutoff = Date.now() - 180 * 24 * 60 * 60 * 1000
   return {
-    profile,
+    profile: {
+      login: profile.login, name: profile.name, bio: profile.bio, avatar_url: profile.avatar_url,
+      company: profile.company, location: profile.location, public_repos: profile.public_repos,
+      followers: profile.followers, following: profile.following, created_at: profile.created_at,
+    } satisfies GitHubProfile,
     repos: own,
     languageBreakdown,
     totalStars: own.reduce((sum, repo) => sum + (repo.stargazers_count ?? 0), 0),
@@ -58,7 +68,7 @@ export async function scanGitHub(env: Env, username: string) {
 }
 
 async function fetchStats(env: Env, username: string) {
-  const query = `query($login: String!) { user(login: $login) { contributionsCollection { contributionCalendar { totalContributions } totalIssueContributions totalPullRequestContributions } pinnedItems(first: 6, types: REPOSITORY) { nodes { ... on Repository { name description url stargazerCount primaryLanguage { name } } } } } }`
+  const query = `query($login: String!) { user(login: $login) { contributionsCollection { contributionCalendar { totalContributions } totalIssueContributions totalPullRequestContributions } pinnedItems(first: 6, types: REPOSITORY) { nodes { ... on Repository { name description url stargazerCount primaryLanguage { name } owner { login } } } } } }`
   try {
     const result = await fetchJson<any>(GQL, {
       method: 'POST', headers: { ...headers(env), 'Content-Type': 'application/json' },
@@ -67,9 +77,9 @@ async function fetchStats(env: Env, username: string) {
     const user = result?.data?.user
     if (!user) return emptyStats()
     const c = user.contributionsCollection
-    const pinnedRepos = (user.pinnedItems?.nodes ?? []).map((node: any) => ({
+    const pinnedRepos = (user.pinnedItems?.nodes ?? []).filter((node: any) => node?.name).map((node: any) => ({
       name: node.name, description: node.description, url: node.url,
-      stars: node.stargazerCount ?? 0, primaryLanguage: node.primaryLanguage?.name ?? null,
+      stars: node.stargazerCount ?? 0, primaryLanguage: node.primaryLanguage?.name ?? null, owner: node.owner?.login ?? username,
     }))
     return {
       totalContributionsLastYear: c?.contributionCalendar?.totalContributions ?? 0,
@@ -84,39 +94,78 @@ const emptyStats = () => ({ totalContributionsLastYear: 0, totalIssues: 0, total
 
 export async function fetchReadmes(env: Env, username: string, repos: GitHubRepo[], count: number) {
   const selected = [...repos].sort((a, b) => b.stargazers_count - a.stargazers_count || String(b.pushed_at).localeCompare(String(a.pushed_at))).slice(0, count)
-  const pairs = await Promise.all(selected.map(async (repo) => [repo.name, await fetchFile(env, username, repo.name, 'README.md')] as const))
+  const pairs = await Promise.all(selected.map(async (repo) => [repo.name, await fetchReadme(env, username, repo.name)] as const))
   return Object.fromEntries(pairs)
 }
 
+function decodeContent(data: any) {
+  if (data?.encoding !== 'base64' || !data?.content) return ''
+  const binary = atob(String(data.content).replace(/\s/g, ''))
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+  return new TextDecoder().decode(bytes).slice(0, MAX_TEXT)
+}
+
+const repoPath = (username: string, repo: string) => `${API}/repos/${encodeURIComponent(username)}/${encodeURIComponent(repo)}`
+
 export async function fetchFile(env: Env, username: string, repo: string, path: string) {
   try {
-    const data = await fetchJson<any>(`${API}/repos/${encodeURIComponent(username)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`, { headers: headers(env) })
-    if (data?.encoding !== 'base64' || !data?.content) return ''
-    const binary = atob(String(data.content).replace(/\s/g, ''))
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
-    return new TextDecoder().decode(bytes).slice(0, MAX_TEXT)
+    return decodeContent(await fetchJson<any>(`${repoPath(username, repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`, { headers: headers(env) }))
   } catch { return '' }
 }
 
-export async function fetchCommits(env: Env, username: string, repo: string) {
+// GitHub's dedicated README endpoint resolves readme.md, README.rst, docs/README.md, etc.
+// The contents API is case-sensitive, so asking for README.md missed many real READMEs.
+export async function fetchReadme(env: Env, username: string, repo: string) {
   try {
-    const rows = await fetchJson<any[]>(`${API}/repos/${encodeURIComponent(username)}/${encodeURIComponent(repo)}/commits?per_page=20`, { headers: headers(env) })
+    return decodeContent(await fetchJson<any>(`${repoPath(username, repo)}/readme`, { headers: headers(env) }))
+  } catch { return '' }
+}
+
+export async function fetchDefaultBranch(env: Env, username: string, repo: string) {
+  try {
+    const data = await fetchJson<{ default_branch?: string }>(repoPath(username, repo), { headers: headers(env) })
+    if (!data?.default_branch) throw new AppError(404, 'REPOSITORY_NOT_FOUND', 'Repository or branch was not found.')
+    return data.default_branch
+  } catch (error) {
+    if (error instanceof AppError && error.status === 404) throw new AppError(404, 'REPOSITORY_NOT_FOUND', 'Repository or branch was not found.')
+    throw error
+  }
+}
+
+export async function fetchCommits(env: Env, username: string, repo: string, author?: string) {
+  try {
+    const authorQuery = author ? `&author=${encodeURIComponent(author)}` : ''
+    const rows = await fetchJson<any[]>(`${repoPath(username, repo)}/commits?per_page=20${authorQuery}`, { headers: headers(env) })
     return rows.map((row) => String(row?.commit?.message ?? '')).filter(Boolean).slice(0, 20)
   } catch { return [] }
 }
 
+// The Events API stopped including PushEvent commit messages on 2025-10-07, so read
+// the user's own commits from their most recently pushed repositories instead.
 export async function fetchUserCommitMessages(env: Env, username: string) {
   try {
-    const events = await fetchJson<any[]>(`${API}/users/${encodeURIComponent(username)}/events?per_page=100`, { headers: headers(env) })
-    return events.flatMap((event) => event?.type === 'PushEvent' ? (event?.payload?.commits ?? []).map((commit: any) => String(commit.message ?? '')) : []).filter(Boolean).slice(0, 30)
-  } catch { return [] }
+    const repos = await fetchJson<GitHubRepo[]>(`${API}/users/${encodeURIComponent(username)}/repos?per_page=100&sort=pushed`, { headers: headers(env) })
+    const recent = repos
+      .filter((repo) => !repo.fork && repo.pushed_at)
+      .sort((a, b) => Date.parse(b.pushed_at!) - Date.parse(a.pushed_at!))
+      .slice(0, 3)
+    const lists = await Promise.all(recent.map((repo) => fetchCommits(env, username, repo.name, username)))
+    return lists.flat().slice(0, 30)
+  } catch (error) {
+    if (error instanceof AppError && error.status === 404) throw new AppError(404, 'GITHUB_USER_NOT_FOUND', 'GitHub user was not found.')
+    return []
+  }
 }
 
-export async function fetchRepoEvidence(env: Env, username: string, repo: string, branch: string) {
+export async function fetchRepoEvidence(env: Env, username: string, repo: string, branch?: string) {
+  const ref = branch ?? await fetchDefaultBranch(env, username, repo)
   const [treeResult, commits, readme] = await Promise.all([
-    fetchJson<any>(`${API}/repos/${encodeURIComponent(username)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`, { headers: headers(env) }),
+    fetchJson<any>(`${repoPath(username, repo)}/git/trees/${ref.split('/').map(encodeURIComponent).join('/')}?recursive=1`, { headers: headers(env) }).catch((error) => {
+      if (error instanceof AppError && error.status === 404) return null
+      throw error
+    }),
     fetchCommits(env, username, repo),
-    fetchFile(env, username, repo, 'README.md'),
+    fetchReadme(env, username, repo),
   ])
   if (!Array.isArray(treeResult?.tree)) throw new AppError(404, 'REPOSITORY_NOT_FOUND', 'Repository or branch was not found.')
   const tree = treeResult.tree.slice(0, 200).map((item: any) => ({ path: String(item.path), type: String(item.type) }))

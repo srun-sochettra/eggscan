@@ -210,7 +210,7 @@ describe('deepDiveRepo', () => {
 
     const result = await deepDiveRepo('testuser', 'testrepo');
     expect(result).toEqual(mockData);
-    expect(fetch).toHaveBeenCalledWith(`${BASE}/api/scan/testuser/repo/testrepo?defaultBranch=main`);
+    expect(fetch).toHaveBeenCalledWith(`${BASE}/api/scan/testuser/repo/testrepo`);
   });
 
   it('returns json when response is ok with custom branch', async () => {

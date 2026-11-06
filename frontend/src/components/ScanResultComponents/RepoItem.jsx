@@ -10,7 +10,7 @@ export default function RepoItem({ repo, username }) {
     setIsAnalyzing(true)
     setError(null)
     try {
-      const result = await deepDiveRepo(username, repo.name)
+      const result = await deepDiveRepo(username, repo.name, repo.defaultBranch)
       setAnalysis(result)
     } catch (err) {
       setError(err?.message || 'Repository analysis is temporarily unavailable.')
@@ -34,6 +34,7 @@ export default function RepoItem({ repo, username }) {
 
       {!analysis && !isAnalyzing && (
          <button
+           type="button"
            onClick={handleDeepDive}
            aria-label={`Deep dive into ${repo.name}`}
            className="mt-2 text-xs font-semibold bg-egg-300 text-brown-800 px-3 py-1 rounded-full hover:bg-egg-400 transition-colors focus-visible:ring-2 focus-visible:ring-brown-500 outline-none"

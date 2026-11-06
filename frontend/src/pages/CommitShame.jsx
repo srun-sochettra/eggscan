@@ -65,7 +65,8 @@ export default function CommitShame() {
             id="repo"
             type="text"
             value={repo}
-            onChange={(e) => setRepo(e.target.value)}
+            onChange={(e) => setRepo(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))}
+            maxLength={100}
             placeholder="e.g. linux (leave blank for all repos)"
             className="input-egg w-full !pl-4 focus-visible:ring-2 focus-visible:ring-brown-500 outline-none"
             disabled={loading}

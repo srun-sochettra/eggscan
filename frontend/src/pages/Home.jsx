@@ -33,7 +33,7 @@ export default function Home() {
     try {
       await action()
     } catch (e) {
-      setError(e.message)
+      setError(e)
     } finally {
       setLoading(false)
     }
@@ -88,7 +88,8 @@ export default function Home() {
 
         <div className="flex justify-center mb-6">
           <button
-            onClick={() => { setBattleMode(!battleMode); setError(null); setResult(null); setBattleData(null); }}
+            type="button"
+            onClick={() => { setBattleMode(!battleMode); setError(null); setResult(null); setBattleData(null); setSearchParams({}); }}
             className="text-brown-500 font-bold hover:text-brown-700 underline underline-offset-4 transition-colors text-sm focus-visible:ring-2 focus-visible:ring-brown-500 outline-none rounded"
           >
             {battleMode ? "Switch to Normal Scan" : "Try 1v1 Battle Mode "}
@@ -116,9 +117,11 @@ export default function Home() {
             </div>
             <p className="text-brown-700 font-semibold">Oops — {error.message || error}</p>
             <p className="text-brown-500 text-sm mt-1">
-              {error.code === 'GITHUB_USER_NOT_FOUND'
+              {error.code === 'GITHUB_USER_NOT_FOUND' || error.code === 'INVALID_INPUT'
                 ? 'Double-check the username and try again.'
-                : 'The analysis service is temporarily unavailable. Please try again shortly.'}
+                : error.code === 'SCAN_NOT_FOUND'
+                  ? 'That shared result no longer exists. Run a fresh scan instead.'
+                  : 'The analysis service is temporarily unavailable. Please try again shortly.'}
             </p>
           </div>
         )}
