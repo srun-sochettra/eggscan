@@ -4,9 +4,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
@@ -16,6 +17,9 @@ import java.time.Duration;
 
 @Configuration
 public class GroqConfig {
+
+    // 3 retries x 60s meant one request could hang for ~4 minutes.
+    private static final int RETRIES = 1;
 
     @Value("${groq.api-key}")
     private String apiKey;
@@ -27,7 +31,7 @@ public class GroqConfig {
     @Qualifier("groqClient")
     public WebClient groqClient() {
         HttpClient httpClient = HttpClient.create()
-                .responseTimeout(Duration.ofSeconds(60));
+                .responseTimeout(Duration.ofSeconds(30));
 
         return WebClient.builder()
                 .baseUrl(apiUrl)
@@ -40,15 +44,16 @@ public class GroqConfig {
     }
 
     private ExchangeFilterFunction retryFilter() {
+        // Explicit Mono<ClientResponse> types: the Eclipse compiler used by VS Code could not
+        // infer the generic type of the old Mono::error method reference.
         return (request, next) -> next.exchange(request)
                 .flatMap(response -> {
                     if (response.statusCode().is5xxServerError()) {
-                        return response.createException().flatMap(Mono::error);
+                        return response.createException().flatMap(ex -> Mono.<ClientResponse>error(ex));
                     }
                     return Mono.just(response);
                 })
-                .retryWhen(Retry.backoff(3, Duration.ofMillis(500))
-                        .filter(throwable -> throwable instanceof org.springframework.web.reactive.function.client.WebClientResponseException &&
-                                ((org.springframework.web.reactive.function.client.WebClientResponseException) throwable).getStatusCode().is5xxServerError()));
+                .retryWhen(Retry.backoff(RETRIES, Duration.ofMillis(500))
+                        .filter(t -> t instanceof WebClientResponseException e && e.getStatusCode().is5xxServerError()));
     }
 }

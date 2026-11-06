@@ -19,7 +19,8 @@ public class SecurityHeadersFilter implements Filter {
         if (response instanceof HttpServletResponse httpResponse) {
             httpResponse.setHeader("X-Content-Type-Options", "nosniff");
             httpResponse.setHeader("X-Frame-Options", "DENY");
-            httpResponse.setHeader("X-XSS-Protection", "1; mode=block");
+            // The legacy XSS auditor is removed from browsers and could introduce leaks; "0" disables it.
+            httpResponse.setHeader("X-XSS-Protection", "0");
         }
         chain.doFilter(request, response);
     }

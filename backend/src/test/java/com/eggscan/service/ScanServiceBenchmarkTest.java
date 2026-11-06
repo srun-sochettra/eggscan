@@ -1,7 +1,6 @@
 package com.eggscan.service;
 
 import com.eggscan.dto.AIInsights;
-import com.eggscan.dto.ScanResponse;
 import com.eggscan.model.ContributionStats;
 import com.eggscan.model.ScanResult;
 import com.eggscan.model.GitHubProfile;
@@ -13,9 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.Mock;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import java.util.Optional;
 import java.util.Collections;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -82,7 +79,7 @@ public class ScanServiceBenchmarkTest {
         });
 
         // Ensure we bypass cache so both scans actually run their delays.
-        when(scanRecordRepository.findFirstByUsernameOrderByScannedAtDesc(anyString())).thenReturn(Optional.empty());
+        when(scanRecordRepository.findRecentByUsernameAndMode(anyString(), anyString(), any())).thenReturn(Collections.emptyList());
 
         // Warm up / wait for thread pool
         Thread.sleep(500);

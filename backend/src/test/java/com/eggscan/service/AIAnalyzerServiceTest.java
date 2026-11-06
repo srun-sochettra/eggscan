@@ -72,6 +72,7 @@ public class AIAnalyzerServiceTest {
         String result = aiAnalyzerService.battle(scan1, stats1, scan2, stats2);
 
         // Assert
-        assertEquals("player1|||It's a tie because the AI crashed.", result);
+        // Empty winner: ScanService then awards the battle to the higher EggScore.
+        assertEquals("|||The announcer lost their voice, so the scoreboard decides this one.", result);
     }
 }

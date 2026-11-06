@@ -113,5 +113,8 @@ tmp/
 temp/
 repomix-output.xml
 
+# Archive bundles (one-off fix backups, not project files)
+*.zip
+
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 graft/

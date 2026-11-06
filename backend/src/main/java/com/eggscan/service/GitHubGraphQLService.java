@@ -30,6 +30,7 @@ public class GitHubGraphQLService {
                       url
                       stargazerCount
                       primaryLanguage { name }
+                      owner { login }
                     }
                   }
                 }
@@ -54,6 +55,7 @@ public class GitHubGraphQLService {
                     .bodyToMono(JsonNode.class)
                     .block();
 
+            if (resp == null) return empty();
             JsonNode user = resp.path("data").path("user");
             if (user.isMissingNode() || user.isNull()) {
                 return empty();
@@ -66,7 +68,9 @@ public class GitHubGraphQLService {
 
             List<PinnedRepo> pinned = new ArrayList<>();
             for (JsonNode n : user.path("pinnedItems").path("nodes")) {
+                if (n == null || n.path("name").asText("").isBlank()) continue;
                 PinnedRepo p = new PinnedRepo();
+                p.setOwner(n.path("owner").path("login").asText(username));
                 p.setName(n.path("name").asText());
                 p.setDescription(n.path("description").asText(null));
                 p.setUrl(n.path("url").asText());
@@ -90,6 +94,8 @@ public class GitHubGraphQLService {
     private ContributionStats empty() {
         return ContributionStats.builder()
                 .totalContributionsLastYear(0)
+                .totalIssues(0)
+                .totalPullRequests(0)
                 .pinnedRepos(List.of())
                 .hasPinnedRepos(false)
                 .build();

@@ -57,7 +57,8 @@ public class GitHubServiceTest {
 
         if (profileError) {
             when(responseSpecProfile.bodyToMono(GitHubProfile.class))
-                    .thenReturn(Mono.error(new RuntimeException("User not found: " + "testuser")));
+                    .thenReturn(Mono.error(org.springframework.web.reactive.function.client.WebClientResponseException.create(
+                            404, "Not Found", org.springframework.http.HttpHeaders.EMPTY, new byte[0], null)));
         } else {
             when(responseSpecProfile.bodyToMono(GitHubProfile.class)).thenReturn(Mono.just(profile));
         }
@@ -174,13 +175,11 @@ public class GitHubServiceTest {
             gitHubService.scanUser("testuser");
         });
 
-        String msg = exception.getMessage();
-        Throwable cause = exception.getCause();
-        boolean hasExpectedMessage = msg.contains("User not found") ||
-            msg.contains("Failed to fetch data") ||
-            (cause != null && cause.getMessage().contains("User not found"));
-
-        assertTrue(hasExpectedMessage, "Expected exception message to indicate profile not found, got: " + msg + (cause != null ? " (cause: " + cause.getMessage() + ")" : ""));
+        assertTrue(exception instanceof com.eggscan.exception.ApiException, "Expected ApiException, got: " + exception);
+        com.eggscan.exception.ApiException api = (com.eggscan.exception.ApiException) exception;
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, api.getStatus());
+        assertEquals("GITHUB_USER_NOT_FOUND", api.getCode());
+        assertTrue(api.getMessage().contains("User not found"));
     }
 
     @Test

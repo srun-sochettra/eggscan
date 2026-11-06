@@ -38,7 +38,7 @@ public class AIAnalyzerService {
                 "Provide a brutally honest recruiter impression, actual technical skills demonstrated, and harsh areas for improvement. " +
                 "Provide a single 'vibe' word. Also, invent a humorous 'predictedJobTitle' (e.g. 'Senior YAML Engineer'), a joke 'predictedSalary' (e.g. 'Paid in exposure'), and a 'githubWrapped' sentence (e.g. 'You coded most on Sundays, do you have a life?') based on their profile data.";
 
-        String tone = switch (mode.toLowerCase()) {
+        String tone = switch (mode == null ? "honest" : mode.toLowerCase(java.util.Locale.ROOT)) {
             case "professional" -> "Be polite, constructive, and highly professional.";
             case "roast" -> "Be absolutely brutal. Roast them. Make them question their career choices.";
             case "hype" -> "Be an over-enthusiastic tech startup founder. Everything is a paradigm shift.";
@@ -98,7 +98,9 @@ public class AIAnalyzerService {
             com.fasterxml.jackson.databind.JsonNode json = groq.chatJson(prompt, context.toString());
             return json.path("winner").asText() + "|||" + stripEmoji(json.path("report").asText());
         } catch (Exception e) {
-            return scan1.getProfile().getLogin() + "|||It's a tie because the AI crashed.";
+            // Empty winner: ScanService awards the battle to the higher EggScore.
+            log.warn("Battle commentary failed: {}", e.getMessage());
+            return "|||The announcer lost their voice, so the scoreboard decides this one.";
         }
     }
 
@@ -151,7 +153,7 @@ public class AIAnalyzerService {
 
     private void appendLanguages(StringBuilder sb, ScanResult scan) {
         sb.append("=== LANGUAGES (own repos) ===\n");
-        scan.getLanguageBreakdown().entrySet().stream()
+        Optional.ofNullable(scan.getLanguageBreakdown()).orElse(Map.of()).entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .forEach(e -> sb.append("- ").append(e.getKey()).append(": ").append(e.getValue()).append(" repo(s)\n"));
         sb.append("\n");
@@ -159,7 +161,7 @@ public class AIAnalyzerService {
 
     private void appendPinnedRepos(StringBuilder sb, ContributionStats stats) {
         sb.append("=== PINNED REPOS ===\n");
-        if (stats.getPinnedRepos().isEmpty()) {
+        if (stats.getPinnedRepos() == null || stats.getPinnedRepos().isEmpty()) {
             sb.append("(none — recruiter sees random repos instead)\n");
         } else {
             for (PinnedRepo pr : stats.getPinnedRepos()) {
@@ -174,7 +176,7 @@ public class AIAnalyzerService {
 
     private void appendTopRepos(StringBuilder sb, ScanResult scan) {
         sb.append("=== TOP REPOS (sample) ===\n");
-        scan.getRepos().stream().limit(10).forEach(r -> {
+        Optional.ofNullable(scan.getRepos()).orElse(List.of()).stream().limit(10).forEach(r -> {
             sb.append("- ").append(r.getName())
                     .append(" [").append(nullSafe(r.getLanguage())).append("] ")
                     .append("stars:").append(Optional.ofNullable(r.getStargazers_count()).orElse(0))
@@ -220,7 +222,7 @@ public class AIAnalyzerService {
         if (tree != null && tree.getTree() != null) {
             tree.getTree().stream()
                 .limit(50)
-                .forEach(item -> context.append(item.getPath()).append(item.getType().equals("tree") ? "/" : "").append("\n"));
+                .forEach(item -> context.append(item.getPath()).append("tree".equals(item.getType()) ? "/" : "").append("\n"));
         }
 
         context.append("\n--- CONFIG FILES ---\n");
@@ -231,7 +233,12 @@ public class AIAnalyzerService {
         }
 
         context.append("\n--- RECENT COMMITS ---\n");
-        commits.forEach(c -> context.append("- ").append(c.getCommit().getMessage().replace("\n", " ")).append("\n"));
+        if (commits != null) {
+            commits.stream()
+                    .map(GitHubService::messageOf)
+                    .filter(java.util.Objects::nonNull)
+                    .forEach(message -> context.append("- ").append(message.replace("\n", " ")).append("\n"));
+        }
 
         String prompt = "You are a senior staff engineer performing a deep architectural and code quality review on a GitHub repository.\n" +
             "Analyze the provided README, file tree, key configuration files, and recent commit messages.\n\n" +
@@ -261,7 +268,7 @@ public class AIAnalyzerService {
     }
 
     private String getTonePrompt(String tone) {
-        return switch (tone.toLowerCase()) {
+        return switch (tone == null ? "honest" : tone.toLowerCase(java.util.Locale.ROOT)) {
             case "gordon" -> "You are Gordon Ramsay. You are extremely angry, aggressive, and disappointed. Use his signature style and catchphrases.";
             case "parent" -> "You are a disappointed parent. You aren't mad, you're just disappointed. Use passive-aggressive guilt trips.";
             case "techbro" -> "You are an insufferable Silicon Valley tech bro. Use excessive buzzwords, talk about synergy, disruption, and 10x engineering.";
@@ -290,7 +297,7 @@ public class AIAnalyzerService {
         com.fasterxml.jackson.databind.JsonNode json = groq.chatJson(prompt, context.toString());
         CommitShameResponse res = new CommitShameResponse();
         res.setSummary(json.path("summary").asText(""));
-        res.setLazinessScore(json.path("lazinessScore").asInt(0));
+        res.setLazinessScore(clamp(json.path("lazinessScore").asInt(0)));
         List<String> worst = new ArrayList<>();
         json.path("worstCommits").forEach(n -> worst.add(n.asText()));
         res.setWorstCommits(worst);
@@ -316,7 +323,7 @@ public class AIAnalyzerService {
         com.fasterxml.jackson.databind.JsonNode json = groq.chatJson(prompt, context.toString());
         ReadmeRaterResponse res = new ReadmeRaterResponse();
         res.setSummary(json.path("summary").asText(""));
-        res.setUselessnessScore(json.path("uselessnessScore").asInt(0));
+        res.setUselessnessScore(clamp(json.path("uselessnessScore").asInt(0)));
         List<String> nitpicks = new ArrayList<>();
         json.path("nitpicks").forEach(n -> nitpicks.add(n.asText()));
         res.setNitpicks(nitpicks);
@@ -328,7 +335,7 @@ public class AIAnalyzerService {
     public StackRoastResponse roastStack(Map<String, Integer> languages, Map<String, String> configs, String tone) {
         StringBuilder context = new StringBuilder();
         context.append("--- LANGUAGES (Repo counts) ---\n");
-        languages.forEach((k,v) -> context.append(k).append(": ").append(v).append("\n"));
+        Optional.ofNullable(languages).orElse(Map.of()).forEach((k,v) -> context.append(k).append(": ").append(v).append("\n"));
         context.append("\n--- CONFIG FILES ---\n");
         for (Map.Entry<String, String> entry : configs.entrySet()) {
             context.append("[").append(entry.getKey()).append("]\n");

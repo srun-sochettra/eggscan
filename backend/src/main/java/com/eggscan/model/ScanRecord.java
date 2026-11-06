@@ -38,4 +38,8 @@ public class ScanRecord {
     private String vibe;
 
     private LocalDateTime scannedAt;
+
+    /** Scan tone. Every scan is stored so its share link works; only honest scans are ranked. */
+    @Column(name = "scan_mode", length = 20)
+    private String mode;
 }

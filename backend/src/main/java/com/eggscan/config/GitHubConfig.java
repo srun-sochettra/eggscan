@@ -4,9 +4,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
@@ -16,6 +17,9 @@ import java.time.Duration;
 
 @Configuration
 public class GitHubConfig {
+
+    // Retries on 5xx only.
+    private static final int RETRIES = 3;
 
     @Value("${github.token}")
     private String token;
@@ -35,7 +39,7 @@ public class GitHubConfig {
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .baseUrl(apiUrl)
-                .defaultHeader("Authorization", "Bearer " + token)
+                .defaultHeaders(this::addAuthorization)
                 .defaultHeader("Accept", "application/vnd.github+json")
                 .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
                 .defaultHeader("User-Agent", "EggScan")
@@ -53,23 +57,34 @@ public class GitHubConfig {
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .baseUrl(graphqlUrl)
-                .defaultHeader("Authorization", "Bearer " + token)
+                .defaultHeaders(this::addAuthorization)
                 .defaultHeader("Content-Type", "application/json")
                 .defaultHeader("User-Agent", "EggScan")
                 .filter(retryFilter())
                 .build();
     }
 
+    /**
+     * With no token configured the old code sent "Authorization: Bearer " (empty), which GitHub
+     * rejects with 401 on every call. Unauthenticated REST calls work (with a lower rate limit).
+     */
+    private void addAuthorization(org.springframework.http.HttpHeaders headers) {
+        if (token != null && !token.isBlank()) {
+            headers.setBearerAuth(token.trim());
+        }
+    }
+
     private ExchangeFilterFunction retryFilter() {
+        // Explicit Mono<ClientResponse> types: the Eclipse compiler used by VS Code could not
+        // infer the generic type of the old Mono::error method reference.
         return (request, next) -> next.exchange(request)
                 .flatMap(response -> {
                     if (response.statusCode().is5xxServerError()) {
-                        return response.createException().flatMap(Mono::error);
+                        return response.createException().flatMap(ex -> Mono.<ClientResponse>error(ex));
                     }
                     return Mono.just(response);
                 })
-                .retryWhen(Retry.backoff(3, Duration.ofMillis(500))
-                        .filter(throwable -> throwable instanceof org.springframework.web.reactive.function.client.WebClientResponseException &&
-                                ((org.springframework.web.reactive.function.client.WebClientResponseException) throwable).getStatusCode().is5xxServerError()));
+                .retryWhen(Retry.backoff(RETRIES, Duration.ofMillis(500))
+                        .filter(t -> t instanceof WebClientResponseException e && e.getStatusCode().is5xxServerError()));
     }
 }

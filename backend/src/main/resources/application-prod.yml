@@ -11,6 +11,7 @@ spring:
     password: ${DB_PASSWORD:}
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
     hibernate:
       ddl-auto: update
 
@@ -22,4 +23,7 @@ github:
 groq:
   api-key: ${GROQ_API_KEY:}
   api-url: https://api.groq.com/openai/v1
-  model: llama-3.1-8b-instant
+  model: ${GROQ_MODEL:llama-3.1-8b-instant}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://eggscan.vercel.app,https://eggscan.0xlab.workers.dev}

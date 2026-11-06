@@ -106,6 +106,38 @@ public class ScanServiceTest {
 
 
     @Test
+    void getScanById_Throws404_WhenMissing() {
+        when(scanRecordRepository.findById("missing")).thenReturn(Optional.empty());
+        com.eggscan.exception.ApiException e = assertThrows(com.eggscan.exception.ApiException.class, () -> scanService.getScanById("missing"));
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, e.getStatus());
+    }
+
+    @Test
+    void shameCommits_Throws404_InsteadOfRoastingNothing() {
+        when(gitHubService.fetchUserCommitMessages("testuser")).thenReturn(java.util.List.of());
+        com.eggscan.exception.ApiException e = assertThrows(com.eggscan.exception.ApiException.class, () -> scanService.shameCommits("testuser", null, "honest"));
+        assertEquals("NO_COMMITS_FOUND", e.getCode());
+    }
+
+    @Test
+    void battle_MatchesWinnerCaseInsensitively_AndFallsBackToHigherScore() throws Exception {
+        ScanResponse alice = ScanResponse.builder().username("Alice").eggScore(40).build();
+        ScanResponse bob = ScanResponse.builder().username("Bob").eggScore(80).build();
+        ScanRecord aliceRecord = ScanRecord.builder().id("a").username("Alice").jsonPayload("a").scannedAt(LocalDateTime.now()).build();
+        ScanRecord bobRecord = ScanRecord.builder().id("b").username("Bob").jsonPayload("b").scannedAt(LocalDateTime.now()).build();
+        when(scanRecordRepository.findRecentByUsernameAndMode(eq("alice"), eq("honest"), any())).thenReturn(java.util.List.of(aliceRecord));
+        when(scanRecordRepository.findRecentByUsernameAndMode(eq("bob"), eq("honest"), any())).thenReturn(java.util.List.of(bobRecord));
+        when(objectMapper.readValue("a", ScanResponse.class)).thenReturn(alice);
+        when(objectMapper.readValue("b", ScanResponse.class)).thenReturn(bob);
+
+        when(analyzer.battle(any(), any(), any(), any())).thenReturn("@bob|||Bob wins");
+        assertEquals("Bob", scanService.battle("alice", "bob").getWinnerUsername());
+
+        when(analyzer.battle(any(), any(), any(), any())).thenReturn("|||no winner named");
+        assertEquals("Bob", scanService.battle("alice", "bob").getWinnerUsername());
+    }
+
+    @Test
     void getLeaderboard_ReturnsTop10Entries_GroupedByUser() {
         when(scanRecordRepository.findLeaderboard(any(org.springframework.data.domain.Pageable.class))).thenReturn(java.util.List.of(
                 ScanRecord.builder()
@@ -166,7 +198,7 @@ public class ScanServiceTest {
         when(readmeService.fetchTopReadmes(eq("testuser"), any(), eq(5))).thenReturn(java.util.Map.of());
         when(readmeService.countReposWithReadme(any())).thenReturn(0);
         when(analyzer.analyze(any(), any(), any(), any())).thenReturn(mockAi);
-        when(scanRecordRepository.findFirstByUsernameOrderByScannedAtDesc("testuser")).thenReturn(Optional.empty());
+        when(scanRecordRepository.findRecentByUsernameAndMode(eq("testuser"), eq("honest"), any())).thenReturn(java.util.List.of());
 
         // Act
         long startTime = System.currentTimeMillis();

@@ -11,4 +11,6 @@ public class PinnedRepo {
     private String primaryLanguage;
     private int stars;
     private String url;
+    /** Owner login; pinned repos can belong to an organisation or another user. */
+    private String owner;
 }

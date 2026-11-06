@@ -9,7 +9,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class ReadmeService {
@@ -55,6 +54,15 @@ public class ReadmeService {
         return (int) readmes.values().stream().filter(v -> v != null && !v.isBlank()).count();
     }
 
+    /**
+     * Uses GitHub's dedicated README endpoint, which finds readme.md, README.rst, docs/README.md, etc.
+     * Returns "" when the repository has no README or the request fails.
+     */
+    public String fetchReadme(String username, String repo) {
+        String content = fetchReadmeMono(username, repo).block();
+        return content == null ? "" : content;
+    }
+
     private Mono<String> fetchReadmeMono(String username, String repo) {
         return client.get()
                 .uri("/repos/{u}/{r}/readme", username, repo)
@@ -63,9 +71,10 @@ public class ReadmeService {
                 .map(resp -> {
                     String b64 = resp.path("content").asText("");
                     if (b64.isBlank()) return "";
-                    String decoded = new String(Base64.getMimeDecoder().decode(b64));
+                    String decoded = new String(Base64.getMimeDecoder().decode(b64), java.nio.charset.StandardCharsets.UTF_8);
                     return decoded.length() > 1500 ? decoded.substring(0, 1500) : decoded;
                 })
+                .defaultIfEmpty("")
                 .onErrorReturn("");
     }
 }
